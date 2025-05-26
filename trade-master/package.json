@@ -1,0 +1,52 @@
+{
+  "name": "trade-master",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "cra-template-pwa-typescript": "2.0.0",
+    "date-fns": "^4.1.0",
+    "firebase": "^11.8.1",
+    "papaparse": "^5.5.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^2.15.3"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^5.16.4",
+    "@testing-library/react": "^13.4.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.34",
+    "@types/papaparse": "^5.3.16",
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/parser": "^5.62.0",
+    "typescript": "^4.9.5",
+    "web-vitals": "^2.1.4"
+  }
+}

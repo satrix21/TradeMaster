@@ -1,0 +1,11 @@
+{
+  "name": "trademaster",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cd trade-master && npm start",
+    "build": "cd trade-master && npm run build",
+    "test": "cd trade-master && npm test",
+    "install-deps": "cd trade-master && npm install"
+  }
+}
