@@ -81,48 +81,121 @@ const TradeAnalysis: React.FC = () => {
   // State for end trade modal
   const [showEndTradeModal, setShowEndTradeModal] = useState(false);
   const [tradeToEnd, setTradeToEnd] = useState<any>(null);
-  const [endTradeTime, setEndTradeTime] = useState('');
-  // Helper: Parse CSV file
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: any) => {
+  const [endTradeTime, setEndTradeTime] = useState('');  // Helper: Parse CSV file for trades import
+  const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results: Papa.ParseResult<any>) => {
-        // Validate and clean data before setting
-        const cleanedData = results.data.map((row: any) => {
-          // Normalize date format if needed
-          if (row.Date) {
-            // Try to handle different date formats
-            const dateStr = row.Date.toString().trim();
-            if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-              // Convert MM/DD/YYYY or DD/MM/YYYY to YYYY-MM-DD
-              const parts = dateStr.split('/');
-              if (parts.length === 3) {
-                const year = parts[2];
-                const month = parts[0].padStart(2, '0');
-                const day = parts[1].padStart(2, '0');
-                row.Date = `${year}-${month}-${day}`;
-              }
-            } else if (dateStr.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
-              // Convert MM-DD-YYYY or DD-MM-YYYY to YYYY-MM-DD
-              const parts = dateStr.split('-');
-              if (parts.length === 3) {
-                const year = parts[2];
-                const month = parts[0].padStart(2, '0');
-                const day = parts[1].padStart(2, '0');
-                row.Date = `${year}-${month}-${day}`;
+      complete: async (results: Papa.ParseResult<any>) => {
+        try {
+          // Convert CSV data to TradeMaster format
+          const convertedData = results.data.map((row: any) => {
+            // Normalize date format if needed
+            let date = row.Date || row.date || '';
+            if (date) {
+              const dateStr = date.toString().trim();
+              if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                const parts = dateStr.split('/');
+                if (parts.length === 3) {
+                  const year = parts[2];
+                  const month = parts[0].padStart(2, '0');
+                  const day = parts[1].padStart(2, '0');
+                  date = `${year}-${month}-${day}`;
+                }
+              } else if (dateStr.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                  const year = parts[2];
+                  const month = parts[0].padStart(2, '0');
+                  const day = parts[1].padStart(2, '0');
+                  date = `${year}-${month}-${day}`;
+                }
               }
             }
-            // If already in YYYY-MM-DD format or other valid ISO format, keep as is
+
+            return {
+              Date: date,
+              Coin: row.Coin || row.Instrument || row.Symbol || 'UNKNOWN',
+              Position: row.Position || row.Side || 'Long',
+              Strategy: row.Strategy || row.Type || 'Manual',
+              Timeframe: row.Timeframe || row.TimeFrame || '5m',
+              Session: row.Session || row.Market || 'New York',
+              Quantity: row.Quantity || row.Size || row.Amount || '1.0',
+              HoldingTime: row.HoldingTime || row.Duration || '60',
+              StopLoss: row.StopLoss || row.SL || '100.00',
+              AccountBalance: row.AccountBalance || row.Balance || '10000.00',
+              RiskPercent: row.RiskPercent || row.Risk || '1.0',
+              "PnL ": row.PnL || row["PnL "] || row.Profit || '+0.00 PLN',
+              "R/Factor": row.RFactor || row["R/Factor"] || row.RR || '1.0',
+              Win: row.Win || (parseFloat(row.PnL || '0') > 0 ? 'Yes' : 'No'),
+              Loss: row.Loss || (parseFloat(row.PnL || '0') < 0 ? 'Yes' : 'No'),
+              "Confidence 1-5": row.Confidence || row["Confidence 1-5"] || '3',
+              "Pre Notes": row.PreNotes || row["Pre Notes"] || row.Notes || 'Import z CSV',
+              "Post Notes": row.PostNotes || row["Post Notes"] || row.Comments || 'Import z CSV'
+            };
+          });
+
+          if (convertedData.length > 0) {
+            // Ask user what they want to do
+            const choice = window.confirm(
+              'Importuj transakcje z CSV:\n\n' +
+              '✅ OK = DODAJ do istniejących transakcji\n' +
+              '❌ Anuluj = ZASTĄP wszystkie transakcje\n\n' +
+              `CSV zawiera: ${convertedData.length} transakcji\n` +
+              `Obecne transakcje: ${trades.length}`
+            );
+            
+            if (choice) {
+              // ADD MODE: Add CSV trades to existing ones
+              let addedCount = 0;
+              for (const trade of convertedData) {
+                await addTrade(trade);
+                addedCount++;
+              }
+              alert(`✅ Dodano ${addedCount} transakcji z CSV do istniejących!`);
+              
+            } else {
+              // Ask for confirmation to replace all
+              const confirmReplace = window.confirm(
+                '⚠️ UWAGA: Wszystkie obecne transakcje zostaną USUNIĘTE!\n\n' +
+                'Czy na pewno chcesz zastąpić wszystkie dane CSV-em?\n' +
+                'Ta operacja jest NIEODWRACALNA!'
+              );
+              
+              if (confirmReplace) {
+                // REPLACE MODE: Delete all existing trades and add CSV ones
+                for (const trade of trades) {
+                  if (trade.id) {
+                    await deleteTrade(trade.id);
+                  }
+                }
+                
+                // Then add CSV trades to Firestore
+                let importedCount = 0;
+                for (const trade of convertedData) {
+                  await addTrade(trade);
+                  importedCount++;
+                }
+                
+                alert(`🔄 Zastąpiono wszystkie dane CSV-em! Zaimportowano ${importedCount} transakcji.`);
+              }
+            }
+          } else {
+            alert('Plik CSV jest pusty lub ma nieprawidłowy format!');
           }
-          return row;
-        });
-        setter(cleanedData);
+        } catch (error) {
+          alert('Błąd podczas przetwarzania pliku CSV!');
+          console.error('CSV import error:', error);
+        }
       }
     });
+      // Reset input
+    e.target.value = '';
   };
+
   // Calculate stats from trades
   useEffect(() => {
     if (!trades.length) return;
@@ -615,8 +688,7 @@ const TradeAnalysis: React.FC = () => {
     link.href = URL.createObjectURL(dataBlob);
     link.download = `tradeMaster_backup_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
-  };
-  // Import data from file
+  };  // Import data from file with options
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -626,26 +698,57 @@ const TradeAnalysis: React.FC = () => {
       try {
         const importedData = JSON.parse(event.target?.result as string);
         if (importedData.trades && Array.isArray(importedData.trades)) {
-          if (window.confirm('Czy chcesz zaimportować dane? Obecne transakcje zostaną zastąpione.')) {
-            // First delete all existing trades from Firestore
-            for (const trade of trades) {
-              if (trade.id) {
-                await deleteTrade(trade.id);
-              }
-            }
-            
-            // Then add imported trades to Firestore
+          
+          // Ask user what they want to do
+          const choice = window.confirm(
+            'Wybierz sposób importu:\n\n' +
+            '✅ OK = DODAJ do istniejących transakcji\n' +
+            '❌ Anuluj = ZASTĄP wszystkie transakcje\n\n' +
+            `Importowane transakcje: ${importedData.trades.length}\n` +
+            `Obecne transakcje: ${trades.length}`
+          );
+          
+          if (choice) {
+            // ADD MODE: Add imported trades to existing ones
+            let addedCount = 0;
             for (const trade of importedData.trades) {
               const { id, ...tradeData } = trade; // Remove id if present
               await addTrade(tradeData);
+              addedCount++;
             }
+            alert(`✅ Dodano ${addedCount} nowych transakcji do istniejących ${trades.length}!`);
             
-            // Update plan if included in import
-            if (importedData.plan && Array.isArray(importedData.plan)) {
-              setPlan(importedData.plan);
+          } else {
+            // Ask for confirmation to replace all
+            const confirmReplace = window.confirm(
+              '⚠️ UWAGA: Wszystkie obecne transakcje zostaną USUNIĘTE!\n\n' +
+              'Czy na pewno chcesz zastąpić wszystkie dane?\n' +
+              'Ta operacja jest NIEODWRACALNA!'
+            );
+            
+            if (confirmReplace) {
+              // REPLACE MODE: Delete all existing trades and add imported ones
+              for (const trade of trades) {
+                if (trade.id) {
+                  await deleteTrade(trade.id);
+                }
+              }
+              
+              // Then add imported trades to Firestore
+              let importedCount = 0;
+              for (const trade of importedData.trades) {
+                const { id, ...tradeData } = trade; // Remove id if present
+                await addTrade(tradeData);
+                importedCount++;
+              }
+              
+              // Update plan if included in import
+              if (importedData.plan && Array.isArray(importedData.plan)) {
+                setPlan(importedData.plan);
+              }
+              
+              alert(`🔄 Zastąpiono wszystkie dane! Zaimportowano ${importedCount} transakcji.`);
             }
-            
-            alert('Dane zostały pomyślnie zaimportowane!');
           }
         } else {
           alert('Nieprawidłowy format pliku!');
@@ -761,7 +864,6 @@ const TradeAnalysis: React.FC = () => {
     top: 0,
     zIndex: 10
   };
-
   const tdStyle: CSSProperties = {
     padding: '0.5rem',
     borderBottom: '1px solid #333333',
@@ -774,19 +876,13 @@ const TradeAnalysis: React.FC = () => {
     backgroundColor: '#1a1a1a'
   };
 
-  const fileInputStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-    marginBottom: '2rem'
-  };
   const labelStyle: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.5rem',
     fontWeight: '600',
     color: '#00ff88'
-  };  const inputStyle: CSSProperties = {
+  };const inputStyle: CSSProperties = {
     padding: '0.75rem',
     border: '2px solid #00ff88',
     borderRadius: '8px',
@@ -845,29 +941,9 @@ const TradeAnalysis: React.FC = () => {
           </p>
           <p style={{margin: '0.5rem 0 0 0', fontSize: '0.9rem', color: '#66ff99'}}>
             Aktualnie zapisanych: {trades.length} transakcji • {plan.length} pozycji planu
-          </p>
-        </div>
-        
-        <div style={fileInputStyle}>
-          <label style={labelStyle}>
-            📁 Wgraj dodatkowe transakcje (CSV):
-            <input 
-              type="file" 
-              accept=".csv" 
-              onChange={e => handleFileUpload(e, (newTrades: any[]) => setTrades([...trades, ...newTrades]))}
-              style={inputStyle}
-            />
-          </label>
-          <label style={labelStyle}>
-            📋 Wgraj plan dnia (CSV):
-            <input 
-              type="file" 
-              accept=".csv" 
-              onChange={e => handleFileUpload(e, setPlan)}
-              style={inputStyle}
-            />
-          </label>
-        </div>        <div style={{display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap'}}>
+          </p>        </div>
+
+        <div style={{display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap'}}>
           {/* Mobile Quick Add Button */}
           {window.innerWidth <= 768 && (
             <button 
@@ -916,17 +992,28 @@ const TradeAnalysis: React.FC = () => {
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2ecc71'}
           >
             💾 Eksportuj Dane
-          </button>
-
-          <label style={{...buttonStyle, backgroundColor: '#9b59b6', cursor: 'pointer', display: 'inline-block'}}
+          </button>          <label style={{...buttonStyle, backgroundColor: '#9b59b6', cursor: 'pointer', display: 'inline-block'}}
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#8e44ad'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#9b59b6'}
           >
-            📁 Importuj Dane
+            📁 Importuj Dane (JSON)
             <input 
               type="file" 
               accept=".json" 
               onChange={handleImportData}
+              style={{display: 'none'}}
+            />
+          </label>
+
+          <label style={{...buttonStyle, backgroundColor: '#16a085', cursor: 'pointer', display: 'inline-block'}}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#138b75'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#16a085'}
+          >
+            📊 Importuj CSV
+            <input 
+              type="file" 
+              accept=".csv" 
+              onChange={handleCSVImport}
               style={{display: 'none'}}
             />
           </label>
