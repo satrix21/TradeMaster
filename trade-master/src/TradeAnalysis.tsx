@@ -980,8 +980,7 @@ const TradeAnalysis: React.FC = () => {
                 </select>
               </label>
             </div>
-            <div>
-              <label style={labelStyle}>
+            <div>              <label style={labelStyle}>
                 Timeframe:
                 <select 
                   value={newTrade.Timeframe}
@@ -991,6 +990,7 @@ const TradeAnalysis: React.FC = () => {
                   <option value="1m">1m</option>
                   <option value="5m">5m</option>
                   <option value="15m">15m</option>
+                  <option value="30m">30m</option>
                   <option value="1h">1h</option>
                   <option value="2h">2h</option>
                   <option value="4h">4h</option>
