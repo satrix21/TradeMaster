@@ -20,6 +20,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { defaultTrades } from './data/defaultTrades';
 import { addTrade, updateTrade, deleteTrade, subscribeToTrades } from './firebaseTrades';
+import loadMasterTradeLogCSV from './data/csvLoader';
 
 const TradeAnalysis: React.FC = () => {
   const [trades, setTrades] = useState<any[]>([]);
@@ -344,19 +345,38 @@ const TradeAnalysis: React.FC = () => {
       confidenceStats: confidenceStatsArray,
       rFactorStats: rFactorStatsArray
     });
-  }, [trades]);
-  // Firestore real-time sync for trades
+  }, [trades]);  // Firestore real-time sync for trades
   useEffect(() => {
-    const unsubscribe = subscribeToTrades((tradesFromFirestore) => {
+    const unsubscribe = subscribeToTrades(async (tradesFromFirestore) => {
       console.log('Firebase trades received:', tradesFromFirestore.length);
       
-      // If this is the first load and Firestore is empty, populate with default trades
+      // If this is the first load and Firestore is empty, populate with CSV data or default trades
       if (!isFirebaseLoaded && tradesFromFirestore.length === 0) {
-        console.log('Firestore is empty, populating with default trades...');
-        // Add default trades to Firestore one by one
-        defaultTrades.forEach(async (trade) => {
-          await addTrade(trade);
-        });
+        console.log('Firestore is empty, loading Master Trade Log CSV...');
+          try {
+          // Try to load Master Trade Log CSV first
+          const csvData = await loadMasterTradeLogCSV();
+          
+          if (csvData.length > 0) {
+            console.log(`Loaded ${csvData.length} trades from Master Trade Log CSV`);
+            // Add CSV trades to Firestore one by one
+            for (const trade of csvData) {
+              await addTrade(trade);
+            }
+          } else {
+            console.log('No CSV data found, using default trades...');
+            // Fallback to default trades if CSV loading fails
+            for (const trade of defaultTrades) {
+              await addTrade(trade);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading CSV data, falling back to default trades:', error);
+          // Fallback to default trades if CSV loading fails
+          for (const trade of defaultTrades) {
+            await addTrade(trade);
+          }
+        }
       } else {
         // Normal operation - update trades from Firestore
         setTrades(tradesFromFirestore);

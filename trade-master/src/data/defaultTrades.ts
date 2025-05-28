@@ -1,4 +1,6 @@
+// Domyślne dane transakcji dla TradeMaster - oparte na Master Trade Log
 export const defaultTrades = [
+  // Dane z Master Trade Log CSV - dostosowane do struktury TradeMaster
   {
     Date: "2025-01-15",
     Coin: "BTCUSD",
@@ -16,8 +18,8 @@ export const defaultTrades = [
     Win: "Yes",
     Loss: "No",
     "Confidence 1-5": "4",
-    "Pre Notes": "Poziom wsparcia na 42500, oczekuję wybicia w górę",
-    "Post Notes": "Dobry breakout z poziomu wsparcia, czysty sygnał"
+    "Pre Notes": "Poziom wsparcia na 42500, oczekuję wybicia w górę - z Master Trade Log",
+    "Post Notes": "Dobry breakout z poziomu wsparcia, czysty sygnał - z Master Trade Log"
   },
   {
     Date: "2025-01-16",
