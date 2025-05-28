@@ -53,13 +53,12 @@ const TradeAnalysis: React.FC = () => {
     PreNotes: false,
     PostNotes: false,
     Actions: true
-  });
-  const [newTrade, setNewTrade] = useState({
+  });  const [newTrade, setNewTrade] = useState({
     Date: new Date().toISOString().split('T')[0],
     Coin: '',
     Position: 'Long',
     Strategy: 'Scalp',
-    Timeframe: '5m',
+    Timeframe: ['5m'], // Changed to array to support multiple timeframes
     Session: 'New York',
     Quantity: '',
     HoldingTime: '',
@@ -218,11 +217,18 @@ const TradeAnalysis: React.FC = () => {
           if (isWin) confidenceStats[confidence].wins += 1;
         }
       }
-      
-      // Timeframe stats (count only)
+        // Timeframe stats (count only)
       const timeframe = t.Timeframe;
       if (timeframe) {
-        timeframeStats[timeframe] = (timeframeStats[timeframe] || 0) + 1;
+        if (Array.isArray(timeframe)) {
+          // If timeframe is an array, count each timeframe
+          timeframe.forEach(tf => {
+            timeframeStats[tf] = (timeframeStats[tf] || 0) + 1;
+          });
+        } else {
+          // If timeframe is a string (for backward compatibility)
+          timeframeStats[timeframe] = (timeframeStats[timeframe] || 0) + 1;
+        }
       }
 
       // R/Factor distribution
@@ -425,13 +431,12 @@ const TradeAnalysis: React.FC = () => {
       Loss: lossStatus,
       IsActive: isActiveTrade
     };
-    await addTrade(updatedTrade);
-    setNewTrade({
+    await addTrade(updatedTrade);    setNewTrade({
       Date: new Date().toISOString().split('T')[0],
       Coin: '',
       Position: 'Long',
       Strategy: 'Scalp',
-      Timeframe: '5m',
+      Timeframe: ['5m'],
       Session: 'New York',
       Quantity: '',
       HoldingTime: '',
@@ -460,11 +465,15 @@ const TradeAnalysis: React.FC = () => {
         await deleteTrade(trade.id);
       }
     }
-  };
-  // Start editing trade
+  };  // Start editing trade
   const handleEditTrade = (trade: any) => {
     setEditingTradeId(trade.id);
-    setEditingTrade({...trade});
+    // Convert string timeframe to array for compatibility
+    const editTrade = {
+      ...trade,
+      Timeframe: Array.isArray(trade.Timeframe) ? trade.Timeframe : [trade.Timeframe]
+    };
+    setEditingTrade(editTrade);
   };
 
   // Save edited trade
@@ -979,25 +988,42 @@ const TradeAnalysis: React.FC = () => {
                   <option value="Breakout+Wick">Breakout+Wick</option>
                 </select>
               </label>
-            </div>
-            <div>              <label style={labelStyle}>
-                Timeframe:
-                <select 
-                  value={newTrade.Timeframe}
-                  onChange={(e) => setNewTrade({...newTrade, Timeframe: e.target.value})}
-                  style={inputStyle}
-                >
-                  <option value="1m">1m</option>
-                  <option value="5m">5m</option>
-                  <option value="15m">15m</option>
-                  <option value="30m">30m</option>
-                  <option value="1h">1h</option>
-                  <option value="2h">2h</option>
-                  <option value="4h">4h</option>
-                  <option value="1d">1d</option>
-                  <option value="1w">1w</option>
-                  <option value="1M">1M</option>
-                </select>
+            </div>            <div>              <label style={labelStyle}>
+                Timeframe (można wybrać kilka):
+                <div style={{
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', 
+                  gap: '0.5rem', 
+                  padding: '0.5rem', 
+                  backgroundColor: 'rgba(0, 255, 136, 0.05)', 
+                  border: '1px solid rgba(0, 255, 136, 0.2)', 
+                  borderRadius: '8px',
+                  marginTop: '0.5rem'
+                }}>
+                  {['1m', '5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w', '1M'].map(timeframe => (
+                    <label key={timeframe} style={{
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.3rem', 
+                      color: '#66ff99',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer'
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        checked={newTrade.Timeframe.includes(timeframe)}
+                        onChange={(e) => {
+                          const updatedTimeframes = e.target.checked 
+                            ? [...newTrade.Timeframe, timeframe]
+                            : newTrade.Timeframe.filter(tf => tf !== timeframe);
+                          setNewTrade({...newTrade, Timeframe: updatedTimeframes});
+                        }}
+                        style={{accentColor: '#00ff88'}}
+                      />
+                      {timeframe}
+                    </label>
+                  ))}
+                </div>
               </label>
             </div>
             <div>
@@ -1367,9 +1393,8 @@ const TradeAnalysis: React.FC = () => {
                           ) : (
                             trade.Position
                           )}
-                        </td>
-                      )}{visibleColumns.Strategy && <td style={tdStyle}>{trade.Strategy}</td>}
-                      {visibleColumns.Timeframe && <td style={tdStyle}>{trade.Timeframe}</td>}
+                        </td>                      )}{visibleColumns.Strategy && <td style={tdStyle}>{trade.Strategy}</td>}
+                      {visibleColumns.Timeframe && <td style={tdStyle}>{Array.isArray(trade.Timeframe) ? trade.Timeframe.join(', ') : trade.Timeframe}</td>}
                       {visibleColumns.Session && <td style={tdStyle}>{trade.Session}</td>}
                       {visibleColumns.Quantity && <td style={tdStyle}>{trade.Quantity}</td>}
                       {visibleColumns.HoldingTime && <td style={tdStyle}>{trade.HoldingTime}</td>}
